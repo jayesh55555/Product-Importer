@@ -1,0 +1,86 @@
+{% extends 'products/base.html' %}
+
+{% block title %}Webhooks - Product Importer{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Webhooks</h1>
+    <a href="{% url 'products:webhook_create' %}" class="btn btn-primary">Add New Webhook</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Name</th>
+                <th>Target URL</th>
+                <th>Event Type</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for webhook in webhooks %}
+            <tr>
+                <td><strong>{{ webhook.name }}</strong></td>
+                <td><code>{{ webhook.target_url|truncatechars:50 }}</code></td>
+                <td>
+                    <span class="badge bg-info">{{ webhook.get_event_type_display }}</span>
+                </td>
+                <td>
+                    {% if webhook.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>{{ webhook.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{% url 'products:webhook_test' webhook.pk %}" class="btn btn-info" title="Test Webhook">
+                            Test
+                        </a>
+                        <a href="{% url 'products:webhook_update' webhook.pk %}" class="btn btn-warning" title="Edit">
+                            Edit
+                        </a>
+                        <a href="{% url 'products:webhook_delete' webhook.pk %}" class="btn btn-danger" title="Delete">
+                            Delete
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">
+                    <p class="mb-2">No webhooks configured.</p>
+                    <a href="{% url 'products:webhook_create' %}" class="btn btn-sm btn-primary">Create Your First Webhook</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

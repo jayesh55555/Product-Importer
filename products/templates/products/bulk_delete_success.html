@@ -1,0 +1,42 @@
+{% extends 'products/base.html' %}
+
+{% block title %}Bulk Delete Success - Product Importer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h2>✓ Bulk Delete Completed</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success">
+                    <h4 class="alert-heading">Success!</h4>
+                    <p class="mb-0">Successfully deleted <strong>{{ count }}</strong> product{{ count|pluralize }} from the database.</p>
+                </div>
+
+                <div class="mb-4">
+                    <h5>What's next?</h5>
+                    <ul>
+                        <li>Upload new products via CSV</li>
+                        <li>Add products manually</li>
+                        <li>View the empty product list</li>
+                    </ul>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a href="{% url 'products:csv_upload' %}" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Upload CSV
+                    </a>
+                    <a href="{% url 'products:product_create' %}" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Add Product
+                    </a>
+                    <a href="{% url 'products:product_list' %}" class="btn btn-secondary">
+                        <i class="bi bi-list"></i> View Products
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

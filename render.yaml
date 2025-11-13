@@ -1,0 +1,54 @@
+services:
+  # Web Service
+  - type: web
+    name: product-importer-web
+    env: python
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn product_importer.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: product-importer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: product-importer-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+
+  # Celery Worker
+  - type: worker
+    name: product-importer-worker
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A product_importer worker --loglevel=info --pool=solo"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: product-importer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: product-importer-redis
+          property: connectionString
+      - key: SECRET_KEY
+        sync: false
+
+databases:
+  - name: product-importer-db
+    databaseName: product_importer
+    user: product_importer
+
+  - name: product-importer-redis
+    plan: starter

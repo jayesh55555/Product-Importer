@@ -1,0 +1,42 @@
+{% extends 'products/base.html' %}
+
+{% block title %}Webhook Test Result - Product Importer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2>Webhook Test Result</h2>
+            </div>
+            <div class="card-body">
+                <h5>Webhook: {{ webhook.name }}</h5>
+                <p><strong>Target URL:</strong> <code>{{ webhook.target_url }}</code></p>
+                
+                <div class="alert alert-info">
+                    <h6>Test Result:</h6>
+                    <p class="mb-0"><code>{{ result }}</code></p>
+                </div>
+                
+                <div class="alert alert-secondary">
+                    <h6>Sample Payload Sent:</h6>
+                    <pre class="mb-0">{
+  "event": "webhook.test",
+  "webhook_name": "{{ webhook.name }}",
+  "timestamp": "2025-11-13T12:00:00",
+  "data": {
+    "message": "This is a test webhook",
+    "test": true
+  }
+}</pre>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'products:webhook_list' %}" class="btn btn-primary">Back to Webhooks</a>
+                    <a href="{% url 'products:webhook_test' webhook.pk %}" class="btn btn-secondary">Test Again</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

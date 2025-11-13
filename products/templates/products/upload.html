@@ -1,0 +1,281 @@
+{% extends 'products/base.html' %}
+
+{% block title %}CSV Upload - Product Importer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2>Upload Products CSV</h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>CSV Format Requirements:</strong>
+                    <ul class="mb-0">
+                        <li>Required columns: <code>sku</code>, <code>name</code>, <code>description</code>, <code>active</code></li>
+                        <li>Active field: use <code>true</code>, <code>false</code>, <code>1</code>, <code>0</code>, <code>yes</code>, or <code>no</code></li>
+                        <li>If a product with the same SKU exists, it will be updated</li>
+                        <li>Maximum 500,000 rows supported</li>
+                    </ul>
+                </div>
+
+                <!-- Upload Form -->
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <span id="uploadBtnText">Upload and Process</span>
+                        <span id="uploadBtnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    </button>
+                </form>
+
+                <!-- Progress Section (hidden initially) -->
+                <div id="progressSection" class="mt-4 d-none">
+                    <h5>Upload Progress</h5>
+                    <div class="progress mb-2" style="height: 30px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            0%
+                        </div>
+                    </div>
+                    <p id="statusText" class="text-muted">Initializing...</p>
+                    <p id="progressDetails" class="small text-muted"></p>
+                </div>
+
+                <!-- Success Section (hidden initially) -->
+                <div id="successSection" class="mt-4 d-none">
+                    <div class="alert alert-success">
+                        <h5 class="alert-heading">Success!</h5>
+                        <p id="successMessage"></p>
+                        <hr>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'products:product_list' %}" class="btn btn-success">View Products</a>
+                            <button type="button" class="btn btn-secondary" onclick="resetUpload()">Upload Another File</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Section (hidden initially) -->
+                <div id="errorSection" class="mt-4 d-none">
+                    <div class="alert alert-danger">
+                        <h5 class="alert-heading">Upload Failed!</h5>
+                        <p><strong>Error:</strong></p>
+                        <p id="errorMessage" class="mb-0"></p>
+                        <hr>
+                        <p class="mb-2"><strong>Common issues:</strong></p>
+                        <ul class="small mb-3">
+                            <li>Missing required columns (sku, name, description, active)</li>
+                            <li>Invalid CSV format or encoding</li>
+                            <li>Empty or malformed rows</li>
+                        </ul>
+                        <button type="button" class="btn btn-warning" onclick="resetUpload()">
+                            <i class="bi bi-arrow-clockwise"></i> Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let pollInterval = null;
+let currentTaskId = null;
+
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('csvFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a file');
+        return;
+    }
+    
+    // Disable upload button and show spinner
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadBtnText = document.getElementById('uploadBtnText');
+    const uploadBtnSpinner = document.getElementById('uploadBtnSpinner');
+    
+    uploadBtn.disabled = true;
+    uploadBtnText.textContent = 'Uploading...';
+    uploadBtnSpinner.classList.remove('d-none');
+    
+    // Hide previous results
+    document.getElementById('successSection').classList.add('d-none');
+    document.getElementById('errorSection').classList.add('d-none');
+    
+    // Show progress section
+    document.getElementById('progressSection').classList.remove('d-none');
+    updateProgress(0, 0, 'Uploading file...');
+    
+    try {
+        // Upload file and start task
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('{% url "products:start_upload" %}', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Upload failed');
+        }
+        
+        const data = await response.json();
+        currentTaskId = data.task_id;
+        
+        // Start polling for progress
+        startPolling(currentTaskId);
+        
+    } catch (error) {
+        showError(error.message);
+        resetUploadButton();
+    }
+});
+
+function startPolling(taskId) {
+    // Clear any existing interval
+    if (pollInterval) {
+        clearInterval(pollInterval);
+    }
+    
+    // Poll every 2 seconds
+    pollInterval = setInterval(() => {
+        checkProgress(taskId);
+    }, 2000);
+    
+    // Check immediately
+    checkProgress(taskId);
+}
+
+async function checkProgress(taskId) {
+    try {
+        const response = await fetch(`/products/upload/progress/${taskId}/`);
+        
+        // Check if response is OK
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Check content type to ensure it's JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Server returned non-JSON response. Please check server logs.');
+        }
+        
+        const data = await response.json();
+        
+        if (data.state === 'PENDING') {
+            updateProgress(0, 0, data.status || 'Task is pending...');
+        } else if (data.state === 'PROGRESS') {
+            const percentage = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+            updateProgress(data.current, data.total, data.status || 'Processing...', percentage);
+        } else if (data.state === 'SUCCESS') {
+            clearInterval(pollInterval);
+            updateProgress(data.total, data.total, data.status || 'Completed!', 100);
+            showSuccess(data.result || data.status || 'Import completed successfully');
+            resetUploadButton();
+        } else if (data.state === 'FAILURE') {
+            clearInterval(pollInterval);
+            
+            // Extract error message from details object
+            let errorMessage = 'An unknown error occurred';
+            if (data.details && typeof data.details === 'object') {
+                const excType = data.details.exc_type || '';
+                const excMessage = data.details.exc_message || '';
+                if (excType && excMessage) {
+                    errorMessage = `${excType}: ${excMessage}`;
+                } else if (excMessage) {
+                    errorMessage = excMessage;
+                } else if (excType) {
+                    errorMessage = excType;
+                }
+            } else if (typeof data.details === 'string') {
+                errorMessage = data.details;
+            } else if (data.status) {
+                errorMessage = data.status;
+            }
+            
+            showError(errorMessage);
+            resetUploadButton();
+        } else {
+            // Handle any other unexpected states
+            console.warn('Unexpected task state:', data.state);
+            updateProgress(0, 0, data.status || `Unknown state: ${data.state}`);
+        }
+    } catch (error) {
+        console.error('Error checking progress:', error);
+        clearInterval(pollInterval);
+        showError('Failed to check progress: ' + error.message);
+        resetUploadButton();
+    }
+}
+
+function updateProgress(current, total, status, percentage = 0) {
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+    const progressDetails = document.getElementById('progressDetails');
+    
+    progressBar.style.width = percentage + '%';
+    progressBar.setAttribute('aria-valuenow', percentage);
+    progressBar.textContent = percentage + '%';
+    
+    statusText.textContent = status;
+    
+    if (total > 0) {
+        progressDetails.textContent = `Processing: ${current.toLocaleString()} / ${total.toLocaleString()} rows`;
+    } else {
+        progressDetails.textContent = '';
+    }
+}
+
+function showSuccess(message) {
+    document.getElementById('progressSection').classList.add('d-none');
+    document.getElementById('successSection').classList.remove('d-none');
+    document.getElementById('successMessage').textContent = message;
+}
+
+function showError(message) {
+    document.getElementById('progressSection').classList.add('d-none');
+    document.getElementById('errorSection').classList.remove('d-none');
+    document.getElementById('errorMessage').textContent = message;
+}
+
+function resetUploadButton() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadBtnText = document.getElementById('uploadBtnText');
+    const uploadBtnSpinner = document.getElementById('uploadBtnSpinner');
+    
+    uploadBtn.disabled = false;
+    uploadBtnText.textContent = 'Upload and Process';
+    uploadBtnSpinner.classList.add('d-none');
+}
+
+function resetUpload() {
+    // Clear form
+    document.getElementById('uploadForm').reset();
+    
+    // Hide all sections
+    document.getElementById('progressSection').classList.add('d-none');
+    document.getElementById('successSection').classList.add('d-none');
+    document.getElementById('errorSection').classList.add('d-none');
+    
+    // Reset button
+    resetUploadButton();
+    
+    // Clear polling
+    if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+    }
+    currentTaskId = null;
+}
+</script>
+{% endblock %}
