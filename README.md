@@ -230,48 +230,10 @@ Use your superuser credentials to:
 - `GET /products/bulk-delete/` - Bulk delete confirmation
 - `POST /products/bulk-delete/` - Execute bulk delete
 
-## Deployment to Render
+## Live Demo
 
-### 1. Push code to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin <your-github-repo>
-git push -u origin main
-```
-
-### 2. Create Render account
-
-Sign up at [render.com](https://render.com)
-
-### 3. Deploy using render.yaml
-
-The project includes a `render.yaml` file that automatically configures:
-- Web service (Django with Gunicorn)
-- Worker service (Celery)
-- PostgreSQL database
-- Redis instance
-
-Simply connect your GitHub repository to Render and it will deploy automatically.
-
-### 4. Set environment variables on Render
-
-Render will auto-generate most variables, but verify:
-- `SECRET_KEY` - Auto-generated
-- `DEBUG` - Set to `False`
-- `ALLOWED_HOSTS` - Set to `.onrender.com`
-- `DATABASE_URL` - Auto-configured
-- `REDIS_URL` - Auto-configured
-
-### 5. Run migrations
-
-After deployment, run:
-```bash
-python manage.py migrate
-python manage.py createsuperuser
-```
+This project is also deployed on Render for demonstration purposes:
+https://product-importer-web-u1nn.onrender.com/products
 
 ## Project Structure
 
