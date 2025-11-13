@@ -3,7 +3,7 @@ services:
   - type: web
     name: product-importer-web
     env: python
-    plan: free         # REQUIRED for free deployment
+    plan: free
     buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
     startCommand: "gunicorn product_importer.wsgi:application"
     envVars:
@@ -29,7 +29,7 @@ services:
   - type: worker
     name: product-importer-worker
     env: python
-    plan: free         # REQUIRED for free deployment
+    plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "celery -A product_importer worker --loglevel=info --pool=solo"
     envVars:
@@ -52,6 +52,7 @@ services:
     name: product-importer-redis
     plan: free
     maxmemoryPolicy: noeviction
+    ipAllowList: []   # REQUIRED FOR FREE REDIS
 
 databases:
   - name: product-importer-db
