@@ -3,6 +3,7 @@ services:
   - type: web
     name: product-importer-web
     env: python
+    plan: free         # REQUIRED for free deployment
     buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
     startCommand: "gunicorn product_importer.wsgi:application"
     envVars:
@@ -20,14 +21,15 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
-        value: False
+        value: "False"
       - key: ALLOWED_HOSTS
-        value: .onrender.com
+        value: ".onrender.com"
 
   # Celery Worker
   - type: worker
     name: product-importer-worker
     env: python
+    plan: free         # REQUIRED for free deployment
     buildCommand: "pip install -r requirements.txt"
     startCommand: "celery -A product_importer worker --loglevel=info --pool=solo"
     envVars:
@@ -43,12 +45,16 @@ services:
           name: product-importer-redis
           property: connectionString
       - key: SECRET_KEY
-        sync: false
+        generateValue: true
+
+  # Redis Service
+  - type: redis
+    name: product-importer-redis
+    plan: free
+    maxmemoryPolicy: noeviction
 
 databases:
   - name: product-importer-db
     databaseName: product_importer
     user: product_importer
-
-  - name: product-importer-redis
-    plan: starter
+    plan: free
